@@ -12,7 +12,7 @@ use base 'Log::Dispatch::Email';
 
 use 5.008008;
 
-our $VERSION = '0.01_1';
+our $VERSION = '0.01_2';
 
 sub new {
     my $proto = shift;
@@ -171,7 +171,7 @@ I don't understand why it doesn't work.
 
 =head1 AUTHOR
 
-keroyonn E<lt>keroyonn@cpan.orgE<gt>
+keroyon E<lt>keroyon@cpan.orgE<gt>
 
 =head1 SEE ALSO
 
