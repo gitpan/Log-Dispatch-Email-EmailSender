@@ -29,4 +29,4 @@ resources:
   homepage: http://github.com/keroyonn/p5-Log-Dispatch-Email-EmailSender/tree
   license: http://dev.perl.org/licenses/
   repository: git://github.com/keroyonn/p5-Log-Dispatch-Email-EmailSender.git
-version: 0.02
+version: 0.03
