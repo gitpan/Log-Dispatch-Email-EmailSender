@@ -2,7 +2,7 @@ package Log::Dispatch::Email::EmailSender;
 
 use warnings;
 use strict;
-use Encode qw(encode);
+use Encode qw(encode decode);
 use Email::MIME;
 use Email::Sender::Simple qw(sendmail);
 use Email::Sender::Transport::SMTP;
@@ -12,7 +12,7 @@ use base 'Log::Dispatch::Email';
 
 use 5.008008;
 
-our $VERSION = '0.03';
+our $VERSION = '0.05';
 
 sub new {
     my $proto = shift;
@@ -26,6 +26,7 @@ sub new {
     $self->{ssl}                = delete $p{ssl};
     $self->{sasl_username}      = delete $p{sasl_username};
     $self->{sasl_password}      = delete $p{sasl_password};
+    $self->{decode}             = delete $p{decode};
 
     return $self;
 }
@@ -46,6 +47,7 @@ sub send_email {
                 subject       => $self->{subject},
                 header_encode => $self->{header_encode} || $d_enc1,
                 body_encode   => $self->{body_encode} || $d_enc2,
+                decode        => $self->{decode},
                 body          => $p{message},
             }
         );
@@ -70,20 +72,26 @@ sub _create_email {
     my $opt   = shift;
     my $enc1  = $opt->{header_encode};
     my $enc2  = $opt->{body_encode};
+    my $dec   = $opt->{decode};
     my $email = Email::MIME->create(
         header => [
-            From    => encode( $enc1, $opt->{from} ),
-            To      => encode( $enc1, $opt->{to} ),
-            Subject => encode( $enc1, $opt->{subject} ),
+            From    => encode( $enc1, _decode($dec, $opt->{from} ) ),
+            To      => encode( $enc1, _decode($dec, $opt->{to} ) ),
+            Subject => encode( $enc1, _decode($dec, $opt->{subject} ) ),
         ],
         attributes => {
             content_type => 'text/plain',
             charset      => $enc2,
             encoding     => '7bit',
         },
-        body => encode( $enc2, $opt->{body} ),
+        body => encode( $enc2, _decode($dec, $opt->{body} ) ),
     );
     return $email;
+}
+
+sub _decode {  # for backward compatibility
+    my ($dec, $str) = @_;
+    $dec ? decode($dec, $str) : $str;
 }
 
 1;
@@ -112,6 +120,7 @@ Log::Dispatch::Email::EmailSender - Subclass of Log::Dispatch::Email that uses t
                     subject       => 'Big error!',
                     header_encode => 'MIME-Header-ISO_2022_JP',
                     body_encode   => 'iso-2022-jp', ],
+                    decode        => 'utf8',
                 ],
           );
   $log->emerg("Something bad is happening");
@@ -131,6 +140,7 @@ Log::Dispatch::Email::EmailSender - Subclass of Log::Dispatch::Email that uses t
                     subject            => 'Big error!',
                     header_encode      => 'MIME-Header-ISO_2022_JP',
                     body_encode        => 'iso-2022-jp',
+                    decode             => 'utf8',
                     use_transport_smtp => 1,
                     host               => [your smtp host],
                     port               => [your smtp port number],

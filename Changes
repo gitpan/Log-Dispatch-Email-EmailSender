@@ -1,5 +1,11 @@
 Revision history for Perl extension Log::Dispatch::Email::EmailSender
 
+0.05    Sat Feb  19 11:05:00 2011
+        - correct version
+
+0.04    Sat Feb  19 11:00:00 2011
+        - pass decode param
+
 0.03    Tue Aug  3 07:10:00 2010
         - correct a spell test
 

@@ -18,6 +18,7 @@ Log::Dispatch::Email::EmailSender - Subclass of Log::Dispatch::Email that uses t
                     subject       => 'Big error!',
                     header_encode => 'MIME-Header-ISO_2022_JP',
                     body_encode   => 'iso-2022-jp', ],
+                    decode        => 'utf8',
                 ],
           );
   $log->emerg("Something bad is happening");
@@ -37,6 +38,7 @@ Log::Dispatch::Email::EmailSender - Subclass of Log::Dispatch::Email that uses t
                     subject            => 'Big error!',
                     header_encode      => 'MIME-Header-ISO_2022_JP',
                     body_encode        => 'iso-2022-jp',
+                    decode             => 'utf8',
                     use_transport_smtp => 1,
                     host               => [your smtp host],
                     port               => [your smtp port number],
