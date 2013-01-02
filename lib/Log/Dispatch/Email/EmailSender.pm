@@ -1,218 +1,183 @@
+#
+# This file is part of Log-Dispatch-Email-EmailSender
+#
+# This software is copyright (c) 2013 by Loïc TROCHET.
+#
+# This is free software; you can redistribute it and/or modify it under
+# the same terms as the Perl 5 programming language system itself.
+#
 package Log::Dispatch::Email::EmailSender;
+{
+  $Log::Dispatch::Email::EmailSender::VERSION = '0.130020';
+}
+# ABSTRACT: Subclass of Log::Dispatch::Email that uses Email::Sender
 
-use warnings;
 use strict;
-use Encode qw(encode decode);
-use Email::MIME;
+use warnings;
+
+use Params::Validate qw(validate SCALAR);
 use Email::Sender::Simple qw(sendmail);
+use Email::Simple;
+use Email::Simple::Creator;
 use Email::Sender::Transport::SMTP;
 
 use Log::Dispatch::Email;
-use base 'Log::Dispatch::Email';
+use parent qw(Log::Dispatch::Email);
 
-use 5.008008;
+Params::Validate::validation_options( allow_extra => 1 );
 
-our $VERSION = '0.05';
 
-sub new {
-    my $proto = shift;
-    my $class = ref $proto || $proto;
-    my %p     = @_;
+sub new
+{
+    my $this = shift;
+    my $class = ref $this || $this;
+
+    my %p = validate
+    (
+        @_
+    ,   {
+            smtp => { type => SCALAR, optional =>  1 }
+        ,   port => { type => SCALAR, default  => 25 }
+        }
+    );
 
     my $self = $class->SUPER::new(%p);
-    $self->{use_transport_smtp} = delete $p{use_transport_smtp};
-    $self->{host}               = delete $p{host};
-    $self->{port}               = delete $p{port};
-    $self->{ssl}                = delete $p{ssl};
-    $self->{sasl_username}      = delete $p{sasl_username};
-    $self->{sasl_password}      = delete $p{sasl_password};
-    $self->{decode}             = delete $p{decode};
+
+    $self->{to} = join ', ', @{$self->{to}} if ref $self->{to};
+
+    if (exists $p{smtp})
+    {
+        $self->{smtp} = $p{smtp};
+        $self->{port} = $p{port};
+    }
 
     return $self;
 }
 
-sub send_email {
+
+sub send_email
+{
     my $self = shift;
-    my %p    = @_;
+    my %p = @_;
 
-    local $?;
-    eval {
-        my $to_str = join ',', @{ $self->{to} };
-        my $d_enc1 = 'MIME-Header-ISO_2022_JP';
-        my $d_enc2 = 'iso-2022-jp';
-        my $email  = _create_email(
-            {
-                from          => $self->{from},
-                to            => $to_str,
-                subject       => $self->{subject},
-                header_encode => $self->{header_encode} || $d_enc1,
-                body_encode   => $self->{body_encode} || $d_enc2,
-                decode        => $self->{decode},
-                body          => $p{message},
-            }
-        );
+    my $email = Email::Simple->create
+                (
+                    header => [
+                                  To      => $self->{to}
+                              ,   From    => $self->{from}
+                              ,   Subject => $self->{subject}
+                              ]
+                ,   body => $p{message}
+                );
 
-        my $transport = {};
-        if ( $self->{use_transport_smtp} ) {
-            $transport->{transport} = Email::Sender::Transport::SMTP->new(
-                host => $self->{host} || 'localhost',
-                port => $self->{port},
-                ssl  => $self->{ssl},
-                sasl_username => $self->{sasl_username},
-                sasl_password => $self->{sasl_password},
-            );
-        }
-        sendmail( $email, $transport, { to => $self->{to} } );
-    };
+    my $args;
 
-    warn $@ if $@;
-}
+    $args = {transport => Email::Sender::Transport::SMTP->new({host => $self->{smtp}, port => $self->{port}})}
+        if exists $self->{smtp};
 
-sub _create_email {
-    my $opt   = shift;
-    my $enc1  = $opt->{header_encode};
-    my $enc2  = $opt->{body_encode};
-    my $dec   = $opt->{decode};
-    my $email = Email::MIME->create(
-        header => [
-            From    => encode( $enc1, _decode($dec, $opt->{from} ) ),
-            To      => encode( $enc1, _decode($dec, $opt->{to} ) ),
-            Subject => encode( $enc1, _decode($dec, $opt->{subject} ) ),
-        ],
-        attributes => {
-            content_type => 'text/plain',
-            charset      => $enc2,
-            encoding     => '7bit',
-        },
-        body => encode( $enc2, _decode($dec, $opt->{body} ) ),
-    );
-    return $email;
-}
-
-sub _decode {  # for backward compatibility
-    my ($dec, $str) = @_;
-    $dec ? decode($dec, $str) : $str;
+    sendmail($email, $args);
 }
 
 1;
 
 __END__
 
-=encoding utf-8
+=pod
 
 =head1 NAME
 
-Log::Dispatch::Email::EmailSender - Subclass of Log::Dispatch::Email that uses the Email::Sender::Simple module
+Log::Dispatch::Email::EmailSender - Subclass of Log::Dispatch::Email that uses Email::Sender
+
+=head1 VERSION
+
+version 0.130020
 
 =head1 SYNOPSIS
 
-  ###
-  ### simple usage
-  ###
-  use Log::Dispatch;
-  my $log =
-      Log::Dispatch->new
-          ( outputs =>
-                [ [ 'Email::EmailSender',
-                    min_level     => 'emerg',
-                    from          => 'logger@example.com',
-                    to            => [ qw( foo@example.com bar@example.org ) ],
-                    subject       => 'Big error!',
-                    header_encode => 'MIME-Header-ISO_2022_JP',
-                    body_encode   => 'iso-2022-jp', ],
-                    decode        => 'utf8',
-                ],
-          );
-  $log->emerg("Something bad is happening");
+    use Log::Dispatch;
 
-  ###
-  ### Sending a message with Email::Sender::Transport::SMTP
-  ### Does not support ssl option.
-  ###
-  use Log::Dispatch;
-  my $log =
-      Log::Dispatch->new
-          ( outputs =>
-                [ [ 'Email::EmailSender',
-                    min_level          => 'emerg',
-                    from               => 'logger@example.com',
-                    to                 => [ qw( foo@example.com bar@example.org ) ],
-                    subject            => 'Big error!',
-                    header_encode      => 'MIME-Header-ISO_2022_JP',
-                    body_encode        => 'iso-2022-jp',
-                    decode             => 'utf8',
-                    use_transport_smtp => 1,
-                    host               => [your smtp host],
-                    port               => [your smtp port number],
-                    sasl_username      => [your username],
-                    sasl_password      => [your password], ],
-                ],
-          );
-  $log->emerg("Something bad is happening");
+    my $log = Log::Dispatch->new(
+        outputs => [
+            [
+                'Email::EmailSender'
+            ,   min_level => 'emerg'
+            ,   to        => [qw( foo@example.com bar@example.org )]
+            ,   subject   => 'Big error!'
+            ]
+        ]
+    );
+
+    $log->emerg("Something bad is happening");
+
+or you can specify a transport:
+
+    use Log::Dispatch;
+
+    my $log = Log::Dispatch->new(
+        outputs => [
+            [
+                'Email::EmailSender'
+            ,   min_level => 'emerg'
+            ,   smtp      => 'smtp.foo.com'
+            ,   port      => 9856
+            ,   to        => [qw( foo@example.com bar@example.org )]
+            ,   subject   => 'Big error!'
+            ]
+        ]
+    );
+
+    $log->emerg("Something bad is happening");
 
 =head1 DESCRIPTION
 
-This is a subclass of L<Log::Dispatch::Email> that implements the
-send_email method using the L<Email::Sender::Simple> module.
-The garble can be prevented by specifying the character encoding. 
+This is a subclass of Log::Dispatch::Email that implements the send_email method using the L<Email::Sender> module.
 
-=head1 DESCRIPTION(ja)
+=head1 METHODS
 
-Log::Dispatch::Email のサブクラスです。
-エンコードを指定することで文字化けを防ぐことができます。
-また、デフォルトで日本語の件名と本文を ISO_2022_JP にエンコーディングするため、他のモジュールのような文字化けが起こりません。
+=head2 new
 
-=head1 DEPENDENCIES
+The constructor can take the following optional parameters in addition to the standard parameters documented
+in L<Log::Dispatch::Email>:
 
-=over
+=over 4
 
-=item L<Log::Dispatch::Email>
+=item * smtp ($)
 
-=item L<Encode>
+SMTP server.
 
-=item L<Email::MIME>
+=item * port ($)
 
-=item L<Email::Sender::Simple>
-
-=item L<Email::Sender::Transport::SMTP>
+Unusual SMTP server port. Default to 25.
 
 =back
 
+=head2 send_email
 
-=head1 BUGS AND LIMITATIONS
-
-Does not support SSL on Email::Sender::Transport::SMTP.
-
-I don't understand why it doesn't work.
-
-=head1 FUTURE PLANS
-
-=over
-
-=item Support other Email::Sender::Transport::* classes.
-
-=item Add more tests.
-
-=back
-
-=head1 AUTHOR
-
-keroyon E<lt>keroyon@cpan.orgE<gt>
+The L<Log::Dispatch::Email> subclassed method.
 
 =head1 SEE ALSO
 
-=over
+L<Log::Dispatch::Email::MIMELite>
 
-=item L<Log::Dispatch>
+L<Log::Dispatch::Email::MailSend>
 
-=item L<Log::Dispatch::Email::MailSender>
+L<Log::Dispatch::Email::EmailSend>
 
-=back
+L<Log::Dispatch::Email::MailSender>
 
-=head1 LICENSE
+L<Log::Dispatch::Email::MailSendmail>
 
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself.
+=encoding utf8
+
+=head1 AUTHOR
+
+Loïc TROCHET <losyme@cpan.org>
+
+=head1 COPYRIGHT AND LICENSE
+
+This software is copyright (c) 2013 by Loïc TROCHET.
+
+This is free software; you can redistribute it and/or modify it under
+the same terms as the Perl 5 programming language system itself.
 
 =cut
-

@@ -1,19 +1,6 @@
-Revision history for Perl extension Log::Dispatch::Email::EmailSender
 
-0.05    Sat Feb  19 11:05:00 2011
-        - correct version
+Revision history
+----------------
 
-0.04    Sat Feb  19 11:00:00 2011
-        - pass decode param
-
-0.03    Tue Aug  3 07:10:00 2010
-        - correct a spell test
-
-0.02    Mon Aug  2 22:38:00 2010
-        - add suport for smtp authorization
-
-0.01_2  Mon Aug  2 09:30:28 2010
-        - correct my email address
-
-0.01_1  Mon Aug  2 06:18:28 2010
-        - original version
+0.130020  2013-01-02 22:11:07 Europe/Paris
+          First version, released by LOSYME

@@ -1,9 +1,0 @@
-severity = 5
-
-[Variables::ProhibitPackageVars]
-add_packages = YAML::Syck
-
-[-ValuesAndExpressions::RequireInterpolationOfMetachars]
-
-[TestingAndDebugging::ProhibitNoStrict]
-allow=refs
